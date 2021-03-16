@@ -82,14 +82,12 @@ namespace Logit
             string xRaw = "36 tech $52,000.00 medium";
             Console.WriteLine("\nPredicting Sex for: ");
             Console.WriteLine(xRaw);
+            
             double[] x = { 0.36, 0, 0, 1, 0.5200, 0, 1, 0 };
             double p = ComputeOutput(x, wts);
-            Console.WriteLine("Computed p-value = " +
-              p.ToString("F4"));
-            if (p < 0.5)
-                Console.WriteLine("Predicted Sex = Male");
-            else
-                Console.WriteLine("Predicted Sex = Female");
+            Console.WriteLine($"Computed p-value = {p:F4}");
+            Console.WriteLine($"Predicted Sex = {(p < 0.5 ? "Male" : "Female")}");
+            
 
             Console.WriteLine("\nEnd demo");
             Console.ReadLine();
@@ -104,15 +102,8 @@ namespace Logit
             z += wts[^1];
             return LogSig(z);
         }
-
-        static double LogSig(double x)
-        {
-            //TODO
-            if (x > 20.0)
-                return 1.0;
-            else
-                return 1.0 / (1.0 + Math.Exp(-x));
-        }
+        
+        static double LogSig(double x) => x > 20.0 ? 1.0 : 1.0 / (1.0 + Math.Exp(-x));
 
         static double[] Train(double[][] trainX, int[] trainY, double lr, int maxEpoch, int seed = 0)
         {
@@ -150,13 +141,10 @@ namespace Logit
                 {
                     double err = Error(trainX, trainY, wts);
                     double acc = Accuracy(trainX, trainY, wts);
-                    Console.Write("iter = " +
-                      epoch.ToString().PadLeft(5));
-                    Console.Write("  error = " + err.ToString("F4"));
-                    Console.Write("  acc = " + acc.ToString("F4"));
-                    Console.WriteLine("");
+                    Console.WriteLine($"iter = {epoch,5}  error = {err:F4} acc = {acc:F4}");
+                    
                 }
-            } // iter
+            } 
 
             return wts;  // trained weights and bias
         }
@@ -182,7 +170,7 @@ namespace Logit
                 double[] x = dataX[i];
                 int y = dataY[i];  // actual, 0 or 1
                 double p = ComputeOutput(x, wts);
-                //TODO
+                
                 if (y == 0 && p <= 0.5)
                     ++numCorrect;
                 else
@@ -191,8 +179,7 @@ namespace Logit
             return (1.0 * numCorrect) / (numCorrect + numWrong);
         }
 
-        static double Error(double[][] dataX,
-          int[] dataY, double[] wts)
+        static double Error(double[][] dataX, int[] dataY, double[] wts)
         {
             double sum = 0.0;
             int N = dataX.Length;
@@ -212,6 +199,5 @@ namespace Logit
                 Console.Write(v[i].ToString("F4") + " ");
             Console.WriteLine("");
         }
-
-    } // Program
-} // ns
+    } 
+} 
