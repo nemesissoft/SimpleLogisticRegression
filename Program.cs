@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Logit
 {
-    class LogisticProgram
+    internal class LogisticProgram
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             Console.WriteLine("Logistic regression using C# demo \n");
 
@@ -60,17 +62,16 @@ namespace Logit
             trainX[38] = new[] { 0.56, 0, 0, 1, 0.3680, 0, 0, 1 };
             trainX[39] = new[] { 0.38, 1, 0, 0, 0.2600, 1, 0, 0 };
 
-            int[] trainY = {
-        1, 0, 1, 0, 0, 0, 1, 1, 0, 1,
-        0, 0, 1, 0, 1, 0, 0, 1, 0, 1,
-        1, 1, 0, 0, 0, 1, 0, 0, 1, 0,
-        0, 0, 1, 1, 1, 0, 0, 1, 0, 0 };
+            int[] trainY =
+            {
+                1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1,
+                1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0
+            };
 
             int maxEpoch = 100;
             double lr = 0.01;
             Console.WriteLine("SGD training with lr = 0.01");
-            double[] wts = Train(trainX, trainY, lr,
-              maxEpoch, seed: 0);
+            double[] wts = Train(trainX, trainY, lr, maxEpoch, 0);
             Console.WriteLine("Training complete \n");
 
             Console.WriteLine("Trained weights and bias: ");
@@ -83,64 +84,49 @@ namespace Logit
             string xRaw = "36 tech $52,000.00 medium";
             Console.WriteLine("\nPredicting Sex for: ");
             Console.WriteLine(xRaw);
-            double[] x =
-              new[] { 0.36, 0, 0, 1, 0.5200, 0, 1, 0 };
+            double[] x = { 0.36, 0, 0, 1, 0.5200, 0, 1, 0 };
             double p = ComputeOutput(x, wts);
-            Console.WriteLine("Computed p-value = " +
-              p.ToString("F4"));
-            if (p < 0.5)
-                Console.WriteLine("Predicted Sex = Male");
-            else
-                Console.WriteLine("Predicted Sex = Female");
+            Console.WriteLine($"Computed p-value = {p:F4}");
+            Console.WriteLine($"Predicted Sex = {(p < 0.5 ? "Male" : "Female")}");
 
-            Console.WriteLine("\nEnd demo");
             Console.ReadLine();
-        } // Main
+        } 
 
-        static double ComputeOutput(double[] x, double[] wts)
+        private static double ComputeOutput(double[] x, double[] wts)
         {
+            static double LogSig(double x) =>
+                x switch
+                {
+                    < -20.0 => 0.0,
+                    > 20.0 => 1.0,
+                    _ => 1.0 / (1.0 + Math.Exp(-x))
+                };
+
             // bias is last cell of w
             double z = 0.0;
             for (int i = 0; i < x.Length; ++i)
                 z += x[i] * wts[i];
-            z += wts[wts.Length - 1];
+            z += wts[^1];
             return LogSig(z);
         }
-
-        static double LogSig(double x)
-        {
-            if (x < -20.0)
-                return 0.0;
-            else if (x > 20.0)
-                return 1.0;
-            else
-                return 1.0 / (1.0 + Math.Exp(-x));
-        }
-
-        static double[] Train(double[][] trainX, int[] trainY,
-          double lr, int maxEpoch, int seed = 0)
+        
+        private static double[] Train(double[][] trainX, int[] trainY, double lr, int maxEpoch, int seed = 0)
         {
             int N = trainX.Length;  // number train items
             int n = trainX[0].Length;  // number predictors
-            double[] wts = new double[n + 1];  // bias
-            int[] indices = new int[N];
-            Random rnd = new Random(seed);
 
-            double lo = -0.01; double hi = 0.01;
-            for (int i = 0; i < wts.Length; ++i)
-                wts[i] = (hi - lo) * rnd.NextDouble() + lo;
-
-            for (int i = 0; i < N; ++i)
-                indices[i] = i;
+            var rand = new SystemRandom(seed);
+            double[] wts = GenerateWeightsAndBias(n, -0.01, 0.01, rand);  
+            
+            int[] indices = Enumerable.Range(0, N).ToArray();
+            
 
             for (int epoch = 0; epoch < maxEpoch; ++epoch)
             {
-                Shuffle(indices, rnd);
+                Shuffle(indices, rand);
 
-                //for (int i = 0; i < N; ++i)
                 foreach (int i in indices)
-                {  // each item
-                   //int idx = indices[i];
+                {
                     double[] x = trainX[i];  // predictors
                     int y = trainY[i];  // target, 0 or 1
                     double p = ComputeOutput(x, wts);
@@ -154,18 +140,17 @@ namespace Logit
                 {
                     double err = Error(trainX, trainY, wts);
                     double acc = Accuracy(trainX, trainY, wts);
-                    Console.Write("iter = " +
-                      epoch.ToString().PadLeft(5));
-                    Console.Write("  error = " + err.ToString("F4"));
-                    Console.Write("  acc = " + acc.ToString("F4"));
-                    Console.WriteLine("");
+                    Console.WriteLine($"iter = {epoch,5}  error = {err:F4} acc = {acc:F4}");
                 }
-            } // iter
+            }
 
             return wts;  // trained weights and bias
         }
 
-        static void Shuffle(int[] vec, Random rnd)
+        private static double[] GenerateWeightsAndBias(int n, double lo, double hi, IRandom rand) 
+            => Enumerable.Repeat(0, n + 1).Select(_ => (hi - lo) * rand.NextDouble() + lo).ToArray();
+
+        private static void Shuffle(int[] vec, IRandom rnd)
         {
             int n = vec.Length;
             for (int i = 0; i < n; ++i)
@@ -177,8 +162,7 @@ namespace Logit
             }
         }
 
-        static double Accuracy(double[][] dataX,
-          int[] dataY, double[] wts)
+        private static double Accuracy(double[][] dataX, int[] dataY, double[] wts)
         {
             int numCorrect = 0; int numWrong = 0;
             int N = dataX.Length;
@@ -198,8 +182,7 @@ namespace Logit
             return (1.0 * numCorrect) / (numCorrect + numWrong);
         }
 
-        static double Error(double[][] dataX,
-          int[] dataY, double[] wts)
+        private static double Error(double[][] dataX, int[] dataY, double[] wts)
         {
             double sum = 0.0;
             int N = dataX.Length;
@@ -210,15 +193,27 @@ namespace Logit
                 double p = ComputeOutput(x, wts);
                 sum += (p - y) * (p - y); // E = (o-t)^2 form
             }
-            return sum / N; ;
+            return sum / N; 
         }
 
-        static void ShowVector(double[] v)
-        {
-            for (int i = 0; i < v.Length; ++i)
-                Console.Write(v[i].ToString("F4") + " ");
-            Console.WriteLine("");
-        }
+        private static void ShowVector(IEnumerable<double> vector) 
+            => Console.WriteLine(string.Join(" ", vector.Select(elem => elem.ToString("F4"))));
+    }
 
+    interface IRandom
+    {
+        double NextDouble();
+        int Next(int minValue, int maxValue);
+    }
+
+    class SystemRandom : IRandom
+    {
+        private readonly Random _rand;
+
+        public SystemRandom(int seed = 0) => _rand = new Random(seed);
+        
+        public double NextDouble() => _rand.NextDouble();
+
+        public int Next(int minValue, int maxValue) => _rand.Next(minValue, maxValue);
     }
 }
