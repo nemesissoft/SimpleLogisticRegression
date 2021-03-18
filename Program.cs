@@ -1,4 +1,5 @@
 ﻿using System;
+
 namespace Logit
 {
     class LogisticProgram
@@ -12,8 +13,8 @@ namespace Logit
             Console.WriteLine("Male    35  tech  86100.00  medium");
             Console.WriteLine(" . . . \n");
             Console.WriteLine("Encoded and normed data looks like: \n");
-            Console.WriteLine("1 <- 0.66  1 0 0  0.5210  1 0 0");
-            Console.WriteLine("0 <- 0.35  0 0 1  0.8610  0 1 0");
+            Console.WriteLine("1 - 0.66  1 0 0  0.5210  1 0 0");
+            Console.WriteLine("0 - 0.35  0 0 1  0.8610  0 1 0");
             Console.WriteLine(" . . . \n");
 
             // load data. 23 Male (0), 17 Female (1)
@@ -60,16 +61,16 @@ namespace Logit
             trainX[39] = new[] { 0.38, 1, 0, 0, 0.2600, 1, 0, 0 };
 
             int[] trainY = {
-                1, 0, 1, 0, 0, 0, 1, 1, 0, 1,
-                0, 0, 1, 0, 1, 0, 0, 1, 0, 1,
-                1, 1, 0, 0, 0, 1, 0, 0, 1, 0,
-                0, 0, 1, 1, 1, 0, 0, 1, 0, 0
-            };
+        1, 0, 1, 0, 0, 0, 1, 1, 0, 1,
+        0, 0, 1, 0, 1, 0, 0, 1, 0, 1,
+        1, 1, 0, 0, 0, 1, 0, 0, 1, 0,
+        0, 0, 1, 1, 1, 0, 0, 1, 0, 0 };
 
             int maxEpoch = 100;
             double lr = 0.01;
             Console.WriteLine("SGD training with lr = 0.01");
-            double[] wts = Train(trainX, trainY, lr, maxEpoch, seed: 0);
+            double[] wts = Train(trainX, trainY, lr,
+              maxEpoch, seed: 0);
             Console.WriteLine("Training complete \n");
 
             Console.WriteLine("Trained weights and bias: ");
@@ -82,12 +83,15 @@ namespace Logit
             string xRaw = "36 tech $52,000.00 medium";
             Console.WriteLine("\nPredicting Sex for: ");
             Console.WriteLine(xRaw);
-            
-            double[] x = { 0.36, 0, 0, 1, 0.5200, 0, 1, 0 };
+            double[] x =
+              new[] { 0.36, 0, 0, 1, 0.5200, 0, 1, 0 };
             double p = ComputeOutput(x, wts);
-            Console.WriteLine($"Computed p-value = {p:F4}");
-            Console.WriteLine($"Predicted Sex = {(p < 0.5 ? "Male" : "Female")}");
-            
+            Console.WriteLine("Computed p-value = " +
+              p.ToString("F4"));
+            if (p < 0.5)
+                Console.WriteLine("Predicted Sex = Male");
+            else
+                Console.WriteLine("Predicted Sex = Female");
 
             Console.WriteLine("\nEnd demo");
             Console.ReadLine();
@@ -99,19 +103,28 @@ namespace Logit
             double z = 0.0;
             for (int i = 0; i < x.Length; ++i)
                 z += x[i] * wts[i];
-            z += wts[^1];
+            z += wts[wts.Length - 1];
             return LogSig(z);
         }
-        
-        static double LogSig(double x) => x > 20.0 ? 1.0 : 1.0 / (1.0 + Math.Exp(-x));
 
-        static double[] Train(double[][] trainX, int[] trainY, double lr, int maxEpoch, int seed = 0)
+        static double LogSig(double x)
+        {
+            if (x < -20.0)
+                return 0.0;
+            else if (x > 20.0)
+                return 1.0;
+            else
+                return 1.0 / (1.0 + Math.Exp(-x));
+        }
+
+        static double[] Train(double[][] trainX, int[] trainY,
+          double lr, int maxEpoch, int seed = 0)
         {
             int N = trainX.Length;  // number train items
             int n = trainX[0].Length;  // number predictors
             double[] wts = new double[n + 1];  // bias
             int[] indices = new int[N];
-            var rnd = new Random(seed);
+            Random rnd = new Random(seed);
 
             double lo = -0.01; double hi = 0.01;
             for (int i = 0; i < wts.Length; ++i)
@@ -141,10 +154,13 @@ namespace Logit
                 {
                     double err = Error(trainX, trainY, wts);
                     double acc = Accuracy(trainX, trainY, wts);
-                    Console.WriteLine($"iter = {epoch,5}  error = {err:F4} acc = {acc:F4}");
-                    
+                    Console.Write("iter = " +
+                      epoch.ToString().PadLeft(5));
+                    Console.Write("  error = " + err.ToString("F4"));
+                    Console.Write("  acc = " + acc.ToString("F4"));
+                    Console.WriteLine("");
                 }
-            } 
+            } // iter
 
             return wts;  // trained weights and bias
         }
@@ -161,7 +177,8 @@ namespace Logit
             }
         }
 
-        static double Accuracy(double[][] dataX, int[] dataY, double[] wts)
+        static double Accuracy(double[][] dataX,
+          int[] dataY, double[] wts)
         {
             int numCorrect = 0; int numWrong = 0;
             int N = dataX.Length;
@@ -170,8 +187,10 @@ namespace Logit
                 double[] x = dataX[i];
                 int y = dataY[i];  // actual, 0 or 1
                 double p = ComputeOutput(x, wts);
-                
-                if (y == 0 && p <= 0.5)
+
+                if (y == 0 && p < 0.5)
+                    ++numCorrect;
+                else if (y == 1 && p >= 0.5)
                     ++numCorrect;
                 else
                     ++numWrong;
@@ -179,7 +198,8 @@ namespace Logit
             return (1.0 * numCorrect) / (numCorrect + numWrong);
         }
 
-        static double Error(double[][] dataX, int[] dataY, double[] wts)
+        static double Error(double[][] dataX,
+          int[] dataY, double[] wts)
         {
             double sum = 0.0;
             int N = dataX.Length;
@@ -199,5 +219,6 @@ namespace Logit
                 Console.Write(v[i].ToString("F4") + " ");
             Console.WriteLine("");
         }
-    } 
-} 
+
+    }
+}
