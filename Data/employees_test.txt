@@ -1,0 +1,11 @@
+# contractor	age	job	income	satisfaction
+True	50	mgmt	54700.00	medium
+False	67	tech	32000.00	low
+False	23	sale	75100.00	high
+True	18	tech	79500.00	low
+False	33	mgmt	62100.00	medium
+True	47	sale	46500.00	medium
+True	59	sale	74200.00	high
+True	51	tech	49700.00	medium
+False	33	tech	26300.00	medium
+False	35	mgmt	83000.00	high
