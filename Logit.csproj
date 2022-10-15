@@ -10,4 +10,17 @@
 		<PackageReference Include="Nemesis.TextParsers" Version="2.6.3" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<Folder Include="Data\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="Data\employees_train.txt">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Data\employees_test.txt">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
 </Project>

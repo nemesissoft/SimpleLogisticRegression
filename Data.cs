@@ -6,43 +6,58 @@ using System.Text.RegularExpressions;
 
 namespace Logit;
 
-static class DataParser
+static partial class DataParser
 {
-    private static readonly Regex _linePattern = new(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace);
+    private static readonly Regex _linePattern = LinePattern();
+    [GeneratedRegex(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
+    private static partial Regex LinePattern();
 
-    public static IReadOnlyCollection<(PredictionInput Input, PredictionResult Result)> Parse(StreamReader reader)
+    public static IReadOnlyList<(IPredictionInput Input, IPredictionResult Result)> Parse(StreamReader reader)
     {
         var trans = Nemesis.TextParsers.TextTransformer.Default;
         T Parse<T>(string text) => trans.GetTransformer<T>().Parse(text);
         static double RoundUpToNearestPowerOf10(double value) => Math.Pow(10, Math.Ceiling(Math.Log10(value)));
 
         var lines = new List<(bool IsFemale, double Age, JobType Job, double Income, Satisfaction Satisfaction)>();
-        
+
         while (reader.ReadLine() is { } line)
         {
             if (line.StartsWith('#')) continue;
 
-            var match = _linePattern.Match(line);
-            if (!match.Success || match.Captures.Count != 5)
+            var matches = _linePattern.Matches(line);
+            
+            if (matches.Count != 5)
                 throw new($"Expected 5 captures in line: \n{line}");
-            var captures = match.Captures;
+            
 
             lines.Add((
-                Parse<bool>(captures[0].Value),
-                Parse<double>(captures[1].Value),
-                Parse<JobType>(captures[2].Value),
-                Parse<double>(captures[3].Value),
-                Parse<Satisfaction>(captures[4].Value)
+                Parse<bool>(matches[0].Value),
+                Parse<double>(matches[1].Value),
+                Parse<JobType>(matches[2].Value),
+                Parse<double>(matches[3].Value),
+                Parse<Satisfaction>(matches[4].Value)
                 ));
         }
         var maxAge = lines.Max(t => t.Age);
         var maxIncome = lines.Max(t => t.Income);
 
+        //TODO add scaling method
 
+        maxAge = RoundUpToNearestPowerOf10(maxAge);
+        maxIncome = RoundUpToNearestPowerOf10(maxIncome);
 
-        var result = new List<(PredictionInput Input, PredictionResult Result)>(lines.Count);
+        var result = new List<(IPredictionInput Input, IPredictionResult Result)>(lines.Count);
 
-    }
+        foreach (var (isFemale, age, job, income, satisfaction) in lines)
+        {
+            result.Add(new(
+                new PredictionInput(age / maxAge, job, income / maxIncome, satisfaction),
+                new PredictionResult(!isFemale) //TODO rewert
+                ));
+        }
+
+        return result;
+    }    
 }
 
 interface IPredictionInput
