@@ -1,21 +1,28 @@
-﻿namespace Logit;
+﻿using System.Numerics;
 
-interface IDataParser<TInput, TResult> 
-    where TInput : IPredictionInput 
-    where TResult : IPredictionResult<TResult>
+namespace Logit;
+
+interface IDataParser<TInput, TResult, TNumber>
+    where TInput : IPredictionInput<TNumber>
+    where TResult : IPredictionResult<TResult, TNumber>
+    where TNumber : IBinaryFloatingPointIeee754<TNumber>
 {
     IReadOnlyList<(TInput Input, TResult TResult)> Parse(StreamReader reader, out Func<TInput, TInput> scallingFunction);
 }
 
-interface IPredictionInput
+
+interface IPredictionInput<TNumber> 
+    where TNumber : IBinaryFloatingPointIeee754<TNumber>
 {
-    double[] Encode();
+    TNumber[] Encode();
 }
 
-interface IPredictionResult<TSelf> 
-    where TSelf : IPredictionResult<TSelf>
-{
-    double Encode();
 
-    static abstract TSelf Parse(double probability);
+interface IPredictionResult<TSelf, TNumber>
+    where TSelf : IPredictionResult<TSelf, TNumber>
+    where TNumber : IBinaryFloatingPointIeee754<TNumber>
+{
+    TNumber Encode();
+
+    static abstract TSelf Parse(TNumber probability);
 }

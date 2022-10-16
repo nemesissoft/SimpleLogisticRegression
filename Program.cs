@@ -21,7 +21,7 @@ static void SatisfactionPrediction(ILogger logger)
     using var trainingReader = File.OpenText("Data/employees_train.txt");
     var trainingData = parser.Parse(trainingReader, out var scallingFunction);
 
-    var (predictor, trainingPhases) = Predictor<PersonSatisfactionInput, PersonSatisfactionResult>.TrainFrom(trainingData, scallingFunction, new(maxEpoch: 1000));
+    var (predictor, trainingPhases) = Predictor<PersonSatisfactionInput, PersonSatisfactionResult, double>.TrainFrom(trainingData, scallingFunction, new(maxEpoch: 1000));
 
     foreach (var (Epoch, Error, Accuracy) in trainingPhases)
         logger.Info($"iter = {Epoch,6}  error = {Error:F4} acc = {Accuracy:F4}");
@@ -68,7 +68,7 @@ static void EmploymentPrediction(ILogger logger)
     using var trainingReader = File.OpenText("Data/employees_train.txt");
     var trainingData = parser.Parse(trainingReader, out var scallingFunction);
 
-    var (predictor, trainingPhases) = Predictor<PersonEmploymentInput, PersonEmploymentResult>.TrainFrom(trainingData, scallingFunction, new(maxEpoch: 100));
+    var (predictor, trainingPhases) = Predictor<PersonEmploymentInput, PersonEmploymentResult, double>.TrainFrom(trainingData, scallingFunction, new(maxEpoch: 100));
 
     foreach (var (Epoch, Error, Accuracy) in trainingPhases)
         logger.Info($"iter = {Epoch,6}  error = {Error:F4} acc = {Accuracy:F4}");

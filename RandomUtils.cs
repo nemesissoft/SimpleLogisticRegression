@@ -1,12 +1,19 @@
-﻿namespace Logit;
+﻿using System.Numerics;
 
-interface IRandom
+namespace Logit;
+
+interface IRandom<TNumber>
+    where TNumber : IBinaryFloatingPointIeee754<TNumber>
 {
     double NextDouble();
+
+    TNumber NextFloatingPoint() => TNumber.CreateSaturating(NextDouble());
+
     int Next(int minValue, int maxValue);
 }
 
-class SystemRandom : IRandom
+class SystemRandom<TNumber> : IRandom<TNumber>
+    where TNumber : IBinaryFloatingPointIeee754<TNumber>
 {
     private readonly Random _rand;
 

@@ -1,16 +1,20 @@
-﻿namespace Logit;
+﻿using System;
+using System.Numerics;
 
-class Predictor<TInput, TResult>
-    where TInput : IPredictionInput
-    where TResult : IPredictionResult<TResult>
+namespace Logit;
+
+class Predictor<TInput, TResult, TNumber>
+    where TInput : IPredictionInput<TNumber>
+    where TResult : IPredictionResult<TResult, TNumber>
+    where TNumber : IBinaryFloatingPointIeee754<TNumber>
 {
-    private readonly double[] _wts;
+    private readonly TNumber[] _wts;
     private readonly Func<TInput, TInput> _scallingFunction;
-    public IReadOnlyList<double> Weights => _wts;
-    public double Accuracy { get; }
-    public double Error { get; }
+    public IReadOnlyList<TNumber> Weights => _wts;
+    public TNumber Accuracy { get; }
+    public TNumber Error { get; }
 
-    private Predictor(double[] wts, Func<TInput, TInput> scallingFunction, double accuracy, double error)
+    private Predictor(TNumber[] wts, Func<TInput, TInput> scallingFunction, TNumber accuracy, TNumber error)
     {
         _wts = wts;
         _scallingFunction = scallingFunction;
@@ -18,44 +22,44 @@ class Predictor<TInput, TResult>
         Error = error;
     }
 
-    public TResult GetOutput(TInput input, out double pValue)
+    public TResult GetOutput(TInput input, out TNumber pValue)
     {
-        double[] encodedInput = _scallingFunction(input).Encode();
+        TNumber[] encodedInput = _scallingFunction(input).Encode();
 
         pValue = GetOutput(encodedInput, _wts);
 
         return TResult.Parse(pValue);
     }
 
-    public static (Predictor<TInput, TResult> Predictor, IEnumerable<TrainingPhase> TrainingPhases)
+    public static (Predictor<TInput, TResult, TNumber> Predictor, IEnumerable<TrainingPhase> TrainingPhases)
         TrainFrom(IReadOnlyList<(TInput Input, TResult Result)> data, Func<TInput, TInput> scallingFunction, PredictorConfiguration configuration)
     {
-        double[][] trainX = new double[data.Count][];
-        double[] trainY = new double[data.Count];
+        var trainX = new TNumber[data.Count][];
+        var trainY = new TNumber[data.Count];
         for (int i = 0; i < trainX.Length; i++)
         {
-            var d = data[i];
-            trainX[i] = scallingFunction(d.Input).Encode();
-            trainY[i] = d.Result.Encode();
+            var (input, result) = data[i];
+            trainX[i] = scallingFunction(input).Encode();
+            trainY[i] = result.Encode();
         }
-        double[] wts = Train(trainX, trainY, out var trainingPhases, configuration);
-        double err = GetError(trainX, trainY, wts);
-        double acc = GetAccuracy(trainX, trainY, wts);
+        var wts = Train(trainX, trainY, out var trainingPhases, configuration);
+        var err = GetError(trainX, trainY, wts);
+        var acc = GetAccuracy(trainX, trainY, wts);
 
-        return (new Predictor<TInput, TResult>(wts, scallingFunction, acc, err), trainingPhases);
+        return (new Predictor<TInput, TResult, TNumber>(wts, scallingFunction, acc, err), trainingPhases);
     }
 
-    private static double[] Train(double[][] trainX, double[] trainY, out IEnumerable<TrainingPhase> trainingPhases, PredictorConfiguration configuration)
+    private static TNumber[] Train(TNumber[][] trainX, TNumber[] trainY, out IEnumerable<TrainingPhase> trainingPhases, PredictorConfiguration configuration)
     {
         var phases = new List<TrainingPhase>();
 
         int N = trainX.Length;  // number train items
         int n = trainX[0].Length;  // number predictors
 
-        double lr = configuration.Lr;
+        var lr = TNumber.CreateSaturating(configuration.Lr);
         int maxEpoch = configuration.MaxEpoch;
 
-        double[] wts = GenerateWeightsAndBias(n, -0.01, 0.01, configuration.Rand);
+        var wts = GenerateWeightsAndBias(n, TNumber.CreateSaturating(-0.01), TNumber.CreateSaturating(0.01), configuration.Rand);
 
         int[] indices = Enumerable.Range(0, N).ToArray();
 
@@ -66,19 +70,19 @@ class Predictor<TInput, TResult>
 
             foreach (int i in indices)
             {
-                double[] x = trainX[i];  // predictors
-                double y = trainY[i];  // target, 0..1
-                double p = GetOutput(x, wts);
+                var x = trainX[i];  // predictors
+                var y = trainY[i];  // target, 0..1
+                var p = GetOutput(x, wts);
 
                 for (int j = 0; j < n; ++j)  // each weight
-                    wts[j] += lr * x[j] * (y - p) * p * (1 - p);
-                wts[n] += lr * (y - p) * p * (1 - p);
+                    wts[j] += lr * x[j] * (y - p) * p * (TNumber.One - p);
+                wts[n] += lr * (y - p) * p * (TNumber.One - p);
             }
 
             if (epoch % (maxEpoch / 10) == 0)
             {
-                double err = GetError(trainX, trainY, wts);
-                double acc = GetAccuracy(trainX, trainY, wts);
+                var err = GetError(trainX, trainY, wts);
+                var acc = GetAccuracy(trainX, trainY, wts);
                 phases.Add(new(epoch, err, acc));
             }
         }
@@ -87,7 +91,7 @@ class Predictor<TInput, TResult>
 
         return wts;  // trained weights and bias
 
-        static void Shuffle(int[] vec, IRandom rnd)
+        static void Shuffle(int[] vec, IRandom<TNumber> rnd)
         {
             int n = vec.Length;
             for (int i = 0; i < n; ++i)
@@ -98,74 +102,81 @@ class Predictor<TInput, TResult>
         }
     }
 
-    private static double GetAccuracy(double[][] dataX, double[] dataY, double[] wts)
+    private static TNumber GetAccuracy(TNumber[][] dataX, TNumber[] dataY, TNumber[] wts)
     {
         int numCorrect = 0; int numWrong = 0;
         int N = dataX.Length;
+        var half = TNumber.CreateSaturating(0.5);
+
         for (int i = 0; i < N; ++i)
         {
-            double[] x = dataX[i];
-            double y = dataY[i];  // actual, 0 or 1
-            double p = GetOutput(x, wts);
+            var x = dataX[i];
+            var y = dataY[i];  // actual, 0 or 1
+            var p = GetOutput(x, wts);
 
-            if (y == 0 && p < 0.5)
+
+
+            if (y == TNumber.Zero && p < half)
                 ++numCorrect;
-            else if (y == 1 && p >= 0.5)
+            else if (y == TNumber.One && p >= half)
                 ++numCorrect;
             else
                 ++numWrong;
         }
-        return (1.0 * numCorrect) / (numCorrect + numWrong);
+        return TNumber.CreateSaturating((1.0 * numCorrect) / (numCorrect + numWrong));
     }
 
-    private static double GetError(double[][] dataX, double[] dataY, double[] wts)
+    private static TNumber GetError(TNumber[][] dataX, TNumber[] dataY, TNumber[] wts)
     {
-        double sum = 0.0;
+        TNumber sum = TNumber.Zero;
         int N = dataX.Length;
         for (int i = 0; i < N; ++i)
         {
-            double[] x = dataX[i];
-            double y = dataY[i];  // target, 0 or 1
-            double p = GetOutput(x, wts);
+            var x = dataX[i];
+            var y = dataY[i];  // target, 0 or 1
+            var p = GetOutput(x, wts);
             sum += (p - y) * (p - y); // E = (o-t)^2 form
         }
-        return sum / N;
+        return sum / TNumber.CreateSaturating(N);
     }
 
-    private static double GetOutput(double[] x, double[] wts)
+    private static TNumber GetOutput(TNumber[] x, TNumber[] wts)
     {
-        static double LogSig(double x) =>
+        static TNumber LogSig(TNumber x) =>
             x switch
             {
-                < -20.0 => 0.0,
-                > 20.0 => 1.0,
-                _ => 1.0 / (1.0 + Math.Exp(-x))
+                < -20.0 => TNumber.Zero,
+                > 20.0 => TNumber.One,
+                _ => TNumber.One / (TNumber.One + TNumber.Exp(-x))
             };
 
         // bias is last cell of w
-        double z = 0.0;
+        TNumber z = TNumber.Zero;
         for (int i = 0; i < x.Length; ++i)
             z += x[i] * wts[i];
         z += wts[^1];
         return LogSig(z);
     }
 
-    private static double[] GenerateWeightsAndBias(int n, double lo, double hi, IRandom rand)
-        => Enumerable.Repeat(0, n + 1).Select(_ => (hi - lo) * rand.NextDouble() + lo).ToArray();
-}
+    private static TNumber[] GenerateWeightsAndBias(int n, TNumber lo, TNumber hi, IRandom<TNumber> rand) =>
+        Enumerable.Repeat(0, n + 1).Select(_ => (hi - lo) * rand.NextFloatingPoint() + lo).ToArray();
 
-readonly record struct TrainingPhase(int Epoch, double Error, double Accuracy);
+    public readonly record struct TrainingPhase(int Epoch, TNumber Error, TNumber Accuracy);
 
-readonly struct PredictorConfiguration
-{
-    public double Lr { get; }
-    public int MaxEpoch { get; }
-    public IRandom Rand { get; }
-
-    public PredictorConfiguration(double lr = 0.01, int maxEpoch = 100, IRandom rand = null)
+    public readonly struct PredictorConfiguration
     {
-        Lr = lr;
-        MaxEpoch = maxEpoch;
-        Rand = rand ?? new SystemRandom(0);
+        public double Lr { get; }
+        public int MaxEpoch { get; }
+        public IRandom<TNumber> Rand { get; }
+
+        public PredictorConfiguration(double lr = 0.01, int maxEpoch = 100, IRandom<TNumber> rand = null)
+        {
+            Lr = lr;
+            MaxEpoch = maxEpoch;
+            Rand = rand ?? new SystemRandom<TNumber>(0);
+        }
     }
 }
+
+
+

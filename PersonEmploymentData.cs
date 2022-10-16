@@ -2,7 +2,7 @@
 
 namespace Logit;
 
-partial class PersonEmploymentDataParser : IDataParser<PersonEmploymentInput, PersonEmploymentResult>
+partial class PersonEmploymentDataParser : IDataParser<PersonEmploymentInput, PersonEmploymentResult, double>
 {
     private static readonly Regex _linePattern = LinePattern();
     [GeneratedRegex(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
@@ -60,7 +60,7 @@ partial class PersonEmploymentDataParser : IDataParser<PersonEmploymentInput, Pe
     }
 }
 
-readonly record struct PersonEmploymentInput(double Age, JobType Job, double Income, Satisfaction Satisfaction) : IPredictionInput
+readonly record struct PersonEmploymentInput(double Age, JobType Job, double Income, Satisfaction Satisfaction) : IPredictionInput<double>
 {
     public double[] Encode()
     {
@@ -85,7 +85,7 @@ readonly record struct PersonEmploymentInput(double Age, JobType Job, double Inc
     }
 }
 
-readonly record struct PersonEmploymentResult(bool IsContractor) : IPredictionResult<PersonEmploymentResult>
+readonly record struct PersonEmploymentResult(bool IsContractor) : IPredictionResult<PersonEmploymentResult, double>
 {
     public static PersonEmploymentResult Parse(double probability) => new(probability >= 0.5);
 
