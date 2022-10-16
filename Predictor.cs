@@ -2,7 +2,7 @@
 
 class Predictor<TInput, TResult>
     where TInput : IPredictionInput
-    where TResult : IPredictionResult
+    where TResult : IPredictionResult<TResult>
 {
     private readonly double[] _wts;
     private readonly Func<TInput, TInput> _scallingFunction;
@@ -18,8 +18,14 @@ class Predictor<TInput, TResult>
         Error = error;
     }
 
-    //TODO change to TResult
-    public double GetOutput(TInput input) => GetOutput(_scallingFunction(input).Encode(), _wts);
+    public TResult GetOutput(TInput input, out double pValue)
+    {
+        double[] encodedInput = _scallingFunction(input).Encode();
+
+        pValue = GetOutput(encodedInput, _wts);
+
+        return TResult.Parse(pValue);
+    }
 
     public static (Predictor<TInput, TResult> Predictor, IEnumerable<TrainingPhase> TrainingPhases)
         TrainFrom(IReadOnlyList<(TInput Input, TResult Result)> data, Func<TInput, TInput> scallingFunction, PredictorConfiguration configuration)

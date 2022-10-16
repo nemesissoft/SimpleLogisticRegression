@@ -2,16 +2,20 @@
 
 ILogger logger = new ConsoleLogger();
 
+logger.Info("EMPLOYMENT");
 EmploymentPrediction(logger);
+
 
 logger.Info("\n\n\n\n\n\n");
 
+
+logger.Info("SATISFACTION");
 SatisfactionPrediction(logger);
 
 Console.ReadLine();
 
 static void SatisfactionPrediction(ILogger logger)
-{    
+{
     var parser = new PersonSatisfactionDataParser();
 
     using var trainingReader = File.OpenText("Data/employees_train.txt");
@@ -26,39 +30,34 @@ static void SatisfactionPrediction(ILogger logger)
     logger.Info("Accuracy of model on training data: " + predictor.Accuracy.ToString("F4"));
 
 
-    //var input = new PersonSatisfactionInput(true, 36, JobType.tech, 52000);
     var input = new PersonSatisfactionInput(false, 66, JobType.mgmt, 52100.00);
-        
 
     logger.Info($"\nPredicting satisfaction for: {input}");
 
-    double p = predictor.GetOutput(input);
-    logger.Info($"Computed p-value = {p:F4}");
-    logger.Info($"Predicted satisfaction = {p switch
-    {
-        < 0.33 => Satisfaction.low,
-        > 0.66 => Satisfaction.high,
-        _ => Satisfaction.medium,
-    }}");
+    var output = predictor.GetOutput(input, out var pValue);
+    logger.Info($"Computed p-value = {pValue:F4}");
+    logger.Info($"Predicted satisfaction = {output.Satisfaction}");
     logger.Info();
 
-    /*using var testReader = File.OpenText("Data/employees_test.txt");
+    using var testReader = File.OpenText("Data/employees_test.txt");
     var testData = parser.Parse(testReader, out _);
 
     var equalCounter = 0;
 
     foreach (var (testInput, testResult) in testData)
     {
-        double prob = predictor.GetOutput(testInput);
-        var predicted = prob < 0.5 ? "SalaryWorker" : "Contractor";
-        var expected = !testResult.IsContractor ? "SalaryWorker" : "Contractor";
+        output = predictor.GetOutput(testInput, out _);
+
+        var predicted = output.Satisfaction;
+        var expected = testResult.Satisfaction;
+
         var isEqual = predicted == expected ? "==" : "!=";
         if (predicted == expected) equalCounter++;
 
         logger.Info($"{predicted} {isEqual} {expected} {testInput}");
     }
 
-    logger.Info($"Actual accurancy {100.0 * equalCounter / testData.Count} %");*/
+    logger.Info($"Actual accurancy {100.0 * equalCounter / testData.Count} %");
 }
 
 
@@ -81,9 +80,12 @@ static void EmploymentPrediction(ILogger logger)
     var input = new PersonEmploymentInput(36, JobType.tech, 52000, Satisfaction.medium);
     logger.Info($"\nPredicting employment for: {input}");
 
-    double p = predictor.GetOutput(input);
-    logger.Info($"Computed p-value = {p:F4}");
-    logger.Info($"Predicted employment = {(p < 0.5 ? "SalaryWorker" : "Contractor")}");
+    var output = predictor.GetOutput(input, out var pValue);
+
+    static string GetEmployment(PersonEmploymentResult result) => result.IsContractor ? "Contractor" : "SalaryWorker";
+
+    logger.Info($"Computed p-value = {pValue:F4}");
+    logger.Info($"Predicted employment = {GetEmployment(output)}");
     logger.Info();
 
 
@@ -95,9 +97,11 @@ static void EmploymentPrediction(ILogger logger)
 
     foreach (var (testInput, testResult) in testData)
     {
-        double prob = predictor.GetOutput(testInput);
-        var predicted = prob < 0.5 ? "SalaryWorker" : "Contractor";
-        var expected = !testResult.IsContractor ? "SalaryWorker" : "Contractor";
+        output = predictor.GetOutput(testInput, out _);
+
+        var predicted = GetEmployment(output);
+        var expected = GetEmployment(testResult);
+
         var isEqual = predicted == expected ? "==" : "!=";
         if (predicted == expected) equalCounter++;
 

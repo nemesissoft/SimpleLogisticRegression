@@ -80,8 +80,15 @@ readonly record struct PersonSatisfactionInput(bool IsContractor, double Age, Jo
     }
 }
 
-readonly record struct PersonSatisfactionResult(Satisfaction Satisfaction) : IPredictionResult
+readonly record struct PersonSatisfactionResult(Satisfaction Satisfaction) : IPredictionResult<PersonSatisfactionResult>
 {
+    public static PersonSatisfactionResult Parse(double probability) => new(probability switch
+    {
+        < 0.33 => Satisfaction.low,
+        > 0.66 => Satisfaction.high,
+        _ => Satisfaction.medium,
+    });
+
     public double Encode() => Satisfaction switch
     {
         Satisfaction.low => 0.0,
