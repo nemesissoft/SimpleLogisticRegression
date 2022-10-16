@@ -18,8 +18,6 @@ class Predictor<TInput, TResult>
         Error = error;
     }
 
-
-
     //TODO change to TResult
     public double GetOutput(TInput input) => GetOutput(_scallingFunction(input).Encode(), _wts);
 

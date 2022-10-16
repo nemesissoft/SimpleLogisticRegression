@@ -2,13 +2,13 @@
 
 namespace Logit;
 
-partial class PersonEmploymentDataParser : IDataParser<PersonEmploymentInput, PersonEmploymentResult>
+partial class PersonSatisfactionDataParser : IDataParser<PersonSatisfactionInput, PersonSatisfactionResult>
 {
     private static readonly Regex _linePattern = LinePattern();
     [GeneratedRegex(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
     private static partial Regex LinePattern();
 
-    public IReadOnlyList<(PersonEmploymentInput Input, PersonEmploymentResult TResult)> Parse(StreamReader reader, out Func<PersonEmploymentInput, PersonEmploymentInput> scallingFunction)
+    public IReadOnlyList<(PersonSatisfactionInput Input, PersonSatisfactionResult TResult)> Parse(StreamReader reader, out Func<PersonSatisfactionInput, PersonSatisfactionInput> scallingFunction)
     {
         var trans = Nemesis.TextParsers.TextTransformer.Default;
         T Parse<T>(string text) => trans.GetTransformer<T>().Parse(text);
@@ -46,13 +46,13 @@ partial class PersonEmploymentDataParser : IDataParser<PersonEmploymentInput, Pe
         maxAge = RoundUpToNearestPowerOf10(maxAge);
         maxIncome = RoundUpToNearestPowerOf10(maxIncome);
 
-        var result = new List<(PersonEmploymentInput Input, PersonEmploymentResult Result)>(lines.Count);
+        var result = new List<(PersonSatisfactionInput Input, PersonSatisfactionResult Result)>(lines.Count);
 
         foreach (var (isContractor, age, job, income, satisfaction) in lines)
         {
             result.Add(new(
-                new PersonEmploymentInput(age, job, income, satisfaction),
-                new PersonEmploymentResult(isContractor)
+                new PersonSatisfactionInput(isContractor, age, job, income),
+                new PersonSatisfactionResult(satisfaction)
                 ));
         }
 
@@ -60,32 +60,34 @@ partial class PersonEmploymentDataParser : IDataParser<PersonEmploymentInput, Pe
     }
 }
 
-readonly record struct PersonEmploymentInput(double Age, JobType Job, double Income, Satisfaction Satisfaction) : IPredictionInput
+readonly record struct PersonSatisfactionInput(bool IsContractor, double Age, JobType Job, double Income) : IPredictionInput
 {
     public double[] Encode()
     {
-        //SalaryWorker  66  mgmt  52100.00  low
-        //Contractor    35  tech  86100.00  medium
-        //0 - 0.66  1 0 0  0.5210  1 0 0
-        //1 - 0.35  0 0 1  0.8610  0 1 0
-
-        var result = new double[8];
+        var result = new double[6];
 
         void Mark(int enumInt, int startingIndex) => result[startingIndex + enumInt] = 1.0;
 
-        result[0] = Age;
+        result[0] = IsContractor ? 1.0 : 0.0;
 
-        Mark((int)Job, 1);
+        result[1] = Age;
 
-        result[4] = Income;
+        Mark((int)Job, 2);
 
-        Mark((int)Satisfaction, 5);
+        result[5] = Income;
 
         return result;
     }
 }
 
-readonly record struct PersonEmploymentResult(bool IsContractor) : IPredictionResult
+readonly record struct PersonSatisfactionResult(Satisfaction Satisfaction) : IPredictionResult
 {
-    public double Encode() => IsContractor ? 1.0 : 0.0;
+    public double Encode() => Satisfaction switch
+    {
+        Satisfaction.low => 0.0,
+        Satisfaction.medium => 0.5,
+        Satisfaction.high => 1.0,
+        _ => throw new NotSupportedException(),
+    };
 }
+
