@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿namespace Logit;
 
-namespace Logit;
-
-class Predictor
+class Predictor<TInput, TResult>
+    where TInput : IPredictionInput 
+    where TResult : IPredictionResult
 {
     private readonly double[] _wts;
     public IReadOnlyList<double> Weights => _wts;
@@ -18,11 +16,11 @@ class Predictor
         Error = error;
     }
 
-    //TODO change to IPredictionResult
-    public double GetOutput(IPredictionInput input) => GetOutput(input.Encode(), _wts);
+    //TODO change to TResult
+    public double GetOutput(TInput input) => GetOutput(input.Encode(), _wts);
 
-    public static (Predictor Predictor, IEnumerable<(int Epoch, double Error, double Accuracy)> TrainingPhases)
-        TrainFrom(IReadOnlyList<(IPredictionInput Input, IPredictionResult Result)> data, double lr = 0.01, int maxEpoch = 100, IRandom rand = null)
+    public static (Predictor<TInput, TResult> Predictor, IEnumerable<(int Epoch, double Error, double Accuracy)> TrainingPhases)
+        TrainFrom(IReadOnlyList<(TInput Input, TResult Result)> data, double lr = 0.01, int maxEpoch = 100, IRandom rand = null)        
     {
         double[][] trainX = new double[data.Count][];
         double[] trainY = new double[data.Count];
@@ -36,7 +34,7 @@ class Predictor
         double err = GetError(trainX, trainY, wts);
         double acc = GetAccuracy(trainX, trainY, wts);
 
-        return (new Predictor(wts, acc, err), trainingPhases);
+        return (new Predictor<TInput, TResult>(wts, acc, err), trainingPhases);
     }
 
     private static double[] Train(double[][] trainX, double[] trainY, out IEnumerable<(int Epoch, double Error, double Accuracy)> trainingPhases,
@@ -53,7 +51,7 @@ class Predictor
         int[] indices = Enumerable.Range(0, N).ToArray();
 
 
-        for (int epoch = 0; epoch < maxEpoch; ++epoch)
+        for (int epoch = 0; epoch <= maxEpoch; ++epoch)
         {
             Shuffle(indices, rand);
 
@@ -86,9 +84,7 @@ class Predictor
             for (int i = 0; i < n; ++i)
             {
                 int ri = rnd.Next(i, n);
-                int tmp = vec[ri];
-                vec[ri] = vec[i];
-                vec[i] = tmp;
+                (vec[i], vec[ri]) = (vec[ri], vec[i]);
             }
         }
     }

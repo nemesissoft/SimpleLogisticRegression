@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Logit;
+﻿namespace Logit;
 
 interface IRandom
 {

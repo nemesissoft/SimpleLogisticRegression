@@ -1,18 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace Logit;
 
-static partial class DataParser
+interface IDataParser<TInput, TResult> where TInput : IPredictionInput where TResult : IPredictionResult
+{
+    IReadOnlyList<(TInput Input, TResult TResult)> Parse(StreamReader reader);
+}
+
+interface IPredictionInput
+{
+    double[] Encode();
+}
+
+interface IPredictionResult
+{
+    double Encode();
+}
+
+
+partial class PersonDataParser: IDataParser<PersonInput, PersonResult>    
 {
     private static readonly Regex _linePattern = LinePattern();
     [GeneratedRegex(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
     private static partial Regex LinePattern();
-
-    public static IReadOnlyList<(IPredictionInput Input, IPredictionResult Result)> Parse(StreamReader reader)
+        
+    public IReadOnlyList<(PersonInput Input, PersonResult TResult)> Parse(StreamReader reader)
     {
         var trans = Nemesis.TextParsers.TextTransformer.Default;
         T Parse<T>(string text) => trans.GetTransformer<T>().Parse(text);
@@ -25,10 +37,10 @@ static partial class DataParser
             if (line.StartsWith('#')) continue;
 
             var matches = _linePattern.Matches(line);
-            
+
             if (matches.Count != 5)
                 throw new($"Expected 5 captures in line: \n{line}");
-            
+
 
             lines.Add((
                 Parse<bool>(matches[0].Value),
@@ -46,32 +58,21 @@ static partial class DataParser
         maxAge = RoundUpToNearestPowerOf10(maxAge);
         maxIncome = RoundUpToNearestPowerOf10(maxIncome);
 
-        var result = new List<(IPredictionInput Input, IPredictionResult Result)>(lines.Count);
+        var result = new List<(PersonInput Input, PersonResult Result)>(lines.Count);
 
         foreach (var (isFemale, age, job, income, satisfaction) in lines)
         {
             result.Add(new(
-                new PredictionInput(age / maxAge, job, income / maxIncome, satisfaction),
-                new PredictionResult(!isFemale) //TODO rewert
+                new PersonInput(age / maxAge, job, income / maxIncome, satisfaction),
+                new PersonResult(!isFemale) //TODO rewert
                 ));
         }
 
         return result;
-    }    
+    }
 }
 
-interface IPredictionInput
-{
-    double[] Encode();
-}
-
-interface IPredictionResult
-{
-    double Encode();
-}
-
-
-readonly record struct PredictionInput(double Age, JobType Job, double Income, Satisfaction Satisfaction) : IPredictionInput
+readonly record struct PersonInput(double Age, JobType Job, double Income, Satisfaction Satisfaction) : IPredictionInput
 {
     public double[] Encode()
     {
@@ -96,7 +97,7 @@ readonly record struct PredictionInput(double Age, JobType Job, double Income, S
     }
 }
 
-readonly record struct PredictionResult(bool IsFemale) : IPredictionResult
+readonly record struct PersonResult(bool IsFemale) : IPredictionResult
 {
     public double Encode() => IsFemale ? 1.0 : 0.0;
 }
