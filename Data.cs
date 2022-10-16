@@ -4,7 +4,7 @@ namespace Logit;
 
 interface IDataParser<TInput, TResult> where TInput : IPredictionInput where TResult : IPredictionResult
 {
-    IReadOnlyList<(TInput Input, TResult TResult)> Parse(StreamReader reader);
+    IReadOnlyList<(TInput Input, TResult TResult)> Parse(StreamReader reader, out Func<TInput, TInput> scallingFunction);
 }
 
 interface IPredictionInput
@@ -18,13 +18,13 @@ interface IPredictionResult
 }
 
 
-partial class PersonDataParser: IDataParser<PersonInput, PersonResult>    
+partial class PersonDataParser : IDataParser<PersonInput, PersonResult>
 {
     private static readonly Regex _linePattern = LinePattern();
     [GeneratedRegex(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
     private static partial Regex LinePattern();
-        
-    public IReadOnlyList<(PersonInput Input, PersonResult TResult)> Parse(StreamReader reader)
+
+    public IReadOnlyList<(PersonInput Input, PersonResult TResult)> Parse(StreamReader reader, out Func<PersonInput, PersonInput> scallingFunction)
     {
         var trans = Nemesis.TextParsers.TextTransformer.Default;
         T Parse<T>(string text) => trans.GetTransformer<T>().Parse(text);
@@ -53,6 +53,12 @@ partial class PersonDataParser: IDataParser<PersonInput, PersonResult>
         var maxAge = lines.Max(t => t.Age);
         var maxIncome = lines.Max(t => t.Income);
 
+        scallingFunction = input => input with
+        {
+            Age = input.Age / maxAge,
+            Income = input.Income / maxIncome
+        };
+
         //TODO add scaling method
 
         maxAge = RoundUpToNearestPowerOf10(maxAge);
@@ -63,7 +69,7 @@ partial class PersonDataParser: IDataParser<PersonInput, PersonResult>
         foreach (var (isFemale, age, job, income, satisfaction) in lines)
         {
             result.Add(new(
-                new PersonInput(age / maxAge, job, income / maxIncome, satisfaction),
+                scallingFunction(new PersonInput(age, job, income, satisfaction)),
                 new PersonResult(!isFemale) //TODO rewert
                 ));
         }
