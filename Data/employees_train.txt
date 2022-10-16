@@ -1,3 +1,4 @@
+# taken from: https://visualstudiomagazine.com/articles/2019/09/30/automl-mlnet.aspx
 # contractor	age	job	income	satisfaction
 False	66	mgmt	52100.00	low
 True	35	tech	86100.00	medium

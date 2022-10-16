@@ -1,59 +1,64 @@
 ﻿namespace Logit;
 
 class Predictor<TInput, TResult>
-    where TInput : IPredictionInput 
+    where TInput : IPredictionInput
     where TResult : IPredictionResult
 {
     private readonly double[] _wts;
+    private readonly Func<TInput, TInput> _scallingFunction;
     public IReadOnlyList<double> Weights => _wts;
     public double Accuracy { get; }
     public double Error { get; }
 
-    private Predictor(double[] wts, double accuracy, double error)
+    private Predictor(double[] wts, Func<TInput, TInput> scallingFunction, double accuracy, double error)
     {
         _wts = wts;
+        _scallingFunction = scallingFunction;
         Accuracy = accuracy;
         Error = error;
     }
 
-    //TODO change to TResult
-    public double GetOutput(TInput input) => GetOutput(input.Encode(), _wts);
 
-    public static (Predictor<TInput, TResult> Predictor, IEnumerable<(int Epoch, double Error, double Accuracy)> TrainingPhases)
-        TrainFrom(IReadOnlyList<(TInput Input, TResult Result)> data, double lr = 0.01, int maxEpoch = 100, IRandom rand = null)        
+
+    //TODO change to TResult
+    public double GetOutput(TInput input) => GetOutput(_scallingFunction(input).Encode(), _wts);
+
+    public static (Predictor<TInput, TResult> Predictor, IEnumerable<TrainingPhase> TrainingPhases)
+        TrainFrom(IReadOnlyList<(TInput Input, TResult Result)> data, Func<TInput, TInput> scallingFunction, PredictorConfiguration configuration)
     {
         double[][] trainX = new double[data.Count][];
         double[] trainY = new double[data.Count];
         for (int i = 0; i < trainX.Length; i++)
         {
             var d = data[i];
-            trainX[i] = d.Input.Encode();
+            trainX[i] = scallingFunction(d.Input).Encode();
             trainY[i] = d.Result.Encode();
         }
-        double[] wts = Train(trainX, trainY, out var trainingPhases, lr, maxEpoch, rand);
+        double[] wts = Train(trainX, trainY, out var trainingPhases, configuration);
         double err = GetError(trainX, trainY, wts);
         double acc = GetAccuracy(trainX, trainY, wts);
 
-        return (new Predictor<TInput, TResult>(wts, acc, err), trainingPhases);
+        return (new Predictor<TInput, TResult>(wts, scallingFunction, acc, err), trainingPhases);
     }
 
-    private static double[] Train(double[][] trainX, double[] trainY, out IEnumerable<(int Epoch, double Error, double Accuracy)> trainingPhases,
-        double lr = 0.01, int maxEpoch = 100, IRandom rand = null)
+    private static double[] Train(double[][] trainX, double[] trainY, out IEnumerable<TrainingPhase> trainingPhases, PredictorConfiguration configuration)
     {
-        var phases = new List<(int Epoch, double Error, double Accuracy)>();
+        var phases = new List<TrainingPhase>();
 
         int N = trainX.Length;  // number train items
         int n = trainX[0].Length;  // number predictors
 
-        rand ??= new SystemRandom(0);
-        double[] wts = GenerateWeightsAndBias(n, -0.01, 0.01, rand);
+        double lr = configuration.Lr;
+        int maxEpoch = configuration.MaxEpoch;
+
+        double[] wts = GenerateWeightsAndBias(n, -0.01, 0.01, configuration.Rand);
 
         int[] indices = Enumerable.Range(0, N).ToArray();
 
 
         for (int epoch = 0; epoch <= maxEpoch; ++epoch)
         {
-            Shuffle(indices, rand);
+            Shuffle(indices, configuration.Rand);
 
             foreach (int i in indices)
             {
@@ -70,7 +75,7 @@ class Predictor<TInput, TResult>
             {
                 double err = GetError(trainX, trainY, wts);
                 double acc = GetAccuracy(trainX, trainY, wts);
-                phases.Add((epoch, err, acc));
+                phases.Add(new(epoch, err, acc));
             }
         }
 
@@ -143,4 +148,20 @@ class Predictor<TInput, TResult>
 
     private static double[] GenerateWeightsAndBias(int n, double lo, double hi, IRandom rand)
         => Enumerable.Repeat(0, n + 1).Select(_ => (hi - lo) * rand.NextDouble() + lo).ToArray();
+}
+
+readonly record struct TrainingPhase(int Epoch, double Error, double Accuracy);
+
+readonly struct PredictorConfiguration
+{
+    public double Lr { get; }
+    public int MaxEpoch { get; }
+    public IRandom Rand { get; }
+
+    public PredictorConfiguration(double lr = 0.01, int maxEpoch = 100, IRandom rand = null)
+    {
+        Lr = lr;
+        MaxEpoch = maxEpoch;
+        Rand = rand ?? new SystemRandom(0);
+    }
 }
