@@ -27,7 +27,7 @@ static void SatisfactionPrediction(ILogger logger)
         logger.Info($"iter = {Epoch,6}  error = {Error:F4} acc = {Accuracy:F4}");
 
     logger.Info($"Trained weights and bias: {string.Join(" ", predictor.Weights.Select(elem => elem.ToString("F4")))}");
-    logger.Info("Accuracy of model on training data: " + predictor.Accuracy.ToString("F4"));
+    logger.Info($"Accuracy of model on training data: {predictor.Accuracy:F4}");
 
 
     var input = new PersonSatisfactionInput(false, 66, JobType.mgmt, 52100.00);
@@ -74,7 +74,7 @@ static void EmploymentPrediction(ILogger logger)
         logger.Info($"iter = {Epoch,6}  error = {Error:F4} acc = {Accuracy:F4}");
 
     logger.Info($"Trained weights and bias: {string.Join(" ", predictor.Weights.Select(elem => elem.ToString("F4")))}");
-    logger.Info("Accuracy of model on training data: " + predictor.Accuracy.ToString("F4"));
+    logger.Info($"Accuracy of model on training data: {predictor.Accuracy:F4}");
 
 
     var input = new PersonEmploymentInput(36, JobType.tech, 52000, Satisfaction.medium);
