@@ -21,7 +21,7 @@ var input = new PersonInput(36, JobType.tech, 52000, Satisfaction.medium);
 _logger.Info("\nPredicting Sex for: ");
 _logger.Info(input.ToString());
 
-double p = predictor.GetOutput(scallingFunction(input));//TODO scaling
+double p = predictor.GetOutput(scallingFunction(input));
 _logger.Info($"Computed p-value = {p:F4}");
 _logger.Info($"Predicted Sex = {(p < 0.5 ? "Male" : "Female")}");
 

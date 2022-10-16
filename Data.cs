@@ -2,22 +2,6 @@
 
 namespace Logit;
 
-interface IDataParser<TInput, TResult> where TInput : IPredictionInput where TResult : IPredictionResult
-{
-    IReadOnlyList<(TInput Input, TResult TResult)> Parse(StreamReader reader, out Func<TInput, TInput> scallingFunction);
-}
-
-interface IPredictionInput
-{
-    double[] Encode();
-}
-
-interface IPredictionResult
-{
-    double Encode();
-}
-
-
 partial class PersonDataParser : IDataParser<PersonInput, PersonResult>
 {
     private static readonly Regex _linePattern = LinePattern();
@@ -58,8 +42,6 @@ partial class PersonDataParser : IDataParser<PersonInput, PersonResult>
             Age = input.Age / maxAge,
             Income = input.Income / maxIncome
         };
-
-        //TODO add scaling method
 
         maxAge = RoundUpToNearestPowerOf10(maxAge);
         maxIncome = RoundUpToNearestPowerOf10(maxIncome);
