@@ -1,5 +1,7 @@
 ﻿namespace Logit;
 
+//TODO add anti-overfitting measures: https://en.wikipedia.org/wiki/Overfitting
+
 class Predictor<TInput, TResult>
     where TInput : IPredictionInput
     where TResult : IPredictionResult<TResult>
@@ -20,27 +22,27 @@ class Predictor<TInput, TResult>
 
     public TResult GetOutput(TInput input, out double pValue)
     {
-        double[] encodedInput = _scallingFunction(input).Encode();
+        var encodedInput = _scallingFunction(input).Encode();
 
         pValue = GetOutput(encodedInput, _wts);
 
-        return TResult.Parse(pValue);
+        return TResult.Decode(pValue);
     }
 
     public static (Predictor<TInput, TResult> Predictor, IEnumerable<TrainingPhase> TrainingPhases)
         TrainFrom(IReadOnlyList<(TInput Input, TResult Result)> data, Func<TInput, TInput> scallingFunction, PredictorConfiguration configuration)
     {
-        double[][] trainX = new double[data.Count][];
-        double[] trainY = new double[data.Count];
+        var trainX = new double[data.Count][];
+        var trainY = new double[data.Count];
         for (int i = 0; i < trainX.Length; i++)
         {
-            var d = data[i];
-            trainX[i] = scallingFunction(d.Input).Encode();
-            trainY[i] = d.Result.Encode();
+            var (input, result) = data[i];
+            trainX[i] = scallingFunction(input).Encode();
+            trainY[i] = result.Encode();
         }
-        double[] wts = Train(trainX, trainY, out var trainingPhases, configuration);
-        double err = GetError(trainX, trainY, wts);
-        double acc = GetAccuracy(trainX, trainY, wts);
+        var wts = Train(trainX, trainY, out var trainingPhases, configuration);
+        var err = GetError(trainX, trainY, wts);
+        var acc = GetAccuracy(trainX, trainY, wts);
 
         return (new Predictor<TInput, TResult>(wts, scallingFunction, acc, err), trainingPhases);
     }
@@ -108,6 +110,7 @@ class Predictor<TInput, TResult>
             double y = dataY[i];  // actual, 0 or 1
             double p = GetOutput(x, wts);
 
+            //TODO use int here + implement one-vs-rest
             if (y == 0 && p < 0.5)
                 ++numCorrect;
             else if (y == 1 && p >= 0.5)

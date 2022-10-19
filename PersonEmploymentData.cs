@@ -87,7 +87,7 @@ readonly record struct PersonEmploymentInput(double Age, JobType Job, double Inc
 
 readonly record struct PersonEmploymentResult(bool IsContractor) : IPredictionResult<PersonEmploymentResult>
 {
-    public static PersonEmploymentResult Parse(double probability) => new(probability >= 0.5);
+    public static PersonEmploymentResult Decode(double probability) => new(probability >= 0.5);
 
     public double Encode() => IsContractor ? 1.0 : 0.0;
 }

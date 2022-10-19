@@ -17,5 +17,5 @@ interface IPredictionResult<TSelf>
 {
     double Encode();
 
-    static abstract TSelf Parse(double probability);
+    static abstract TSelf Decode(double probability);
 }
