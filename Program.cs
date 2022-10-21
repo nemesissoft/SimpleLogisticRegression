@@ -19,7 +19,7 @@ static void SatisfactionPrediction(ILogger logger)
     using var trainingReader = File.OpenText("Data/employees_train.txt");
     var trainingData = parser.Parse(trainingReader, out var scallingFunction);
 
-    var trainingSets = PredictorFactory.TrainMultipleClassFrom(trainingData, scallingFunction, new(0.01, 100));
+    var trainingSets = PredictorFactory.TrainMultipleClassFrom(trainingData, scallingFunction, new(0.1, 100000));
 
     int numClass = 0;
     foreach (var (predictor, trainingPhases) in trainingSets)
@@ -43,8 +43,7 @@ static void SatisfactionPrediction(ILogger logger)
     logger.Info($"Predicted satisfaction = {decoder.Decode(outputs).Satisfaction}");
     logger.Info();
 
-    using var testReader = File.OpenText("Data/employees_train.txt");
-    //using var testReader = File.OpenText("Data/employees_test.txt"); //TODO change
+    using var testReader = File.OpenText("Data/employees_test.txt");
     var testData = parser.Parse(testReader, out _);
 
     var equalCounter = 0;
@@ -59,10 +58,10 @@ static void SatisfactionPrediction(ILogger logger)
         var isEqual = predicted == expected ? "==" : "!=";
         if (predicted == expected) equalCounter++;
 
-        logger.Info($"{predicted} {isEqual} {expected} [{string.Join(" ", outputs.Select(elem => elem.ToString("F4")))}] {testInput.ToString().Replace(nameof(PersonSatisfactionInput), "")}");
+        logger.Info($"{predicted,7} {isEqual} {expected,7} [{string.Join(" ", outputs.Select(elem => elem.ToString("F4")))}] {testInput.ToString().Replace(nameof(PersonSatisfactionInput), "")}");
     }
 
-    logger.Info($"MacroAccurcy {100.0 * equalCounter / testData.Count} %");
+    logger.Info($"Actual accurancy {100.0 * equalCounter / testData.Count} %"); //MacroAccuracy when training set is used
 }
 
 
