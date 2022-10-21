@@ -1,6 +1,8 @@
-﻿namespace Logit;
+﻿using System.Text.RegularExpressions;
 
-/*class PersonSatisfactionDataParser : IDataParser<PersonSatisfactionInput, PersonSatisfactionResult>
+namespace Logit;
+
+class PersonSatisfactionDataParser : IDataParser<PersonSatisfactionInput, PersonSatisfactionResult>
 {
     private static readonly Regex _linePattern = new(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace);
 
@@ -76,24 +78,29 @@ readonly record struct PersonSatisfactionInput(bool IsContractor, double Age, Jo
     }
 }
 
-readonly record struct PersonSatisfactionResult(Satisfaction Satisfaction) : IBinaryResult<PersonSatisfactionResult>
+readonly record struct PersonSatisfactionResult(Satisfaction Satisfaction) : IMultiClassResult<PersonSatisfactionResult>
 {
-    public static PersonSatisfactionResult Decode(double probability) => new(probability switch
-    {
-        < 0.33 => Satisfaction.low,
-        > 0.66 => Satisfaction.high,
-        _ => Satisfaction.medium,
-    });
+    public int ClassCount => 3;
 
-    *//*public double Encode() => Satisfaction switch
+    public SimpleResult Separate(PersonSatisfactionResult multiClass, int classNumber) => classNumber switch
     {
-        Satisfaction.low => 0.0,
-        Satisfaction.medium => 0.5,
-        Satisfaction.high => 1.0,
-        _ => throw new NotSupportedException(),
-    };*//*
-
-    public int Encode() => Satisfaction == Satisfaction.low ? 1 : 0;
+        0 => new(multiClass.Satisfaction == Satisfaction.low),
+        1 => new(multiClass.Satisfaction == Satisfaction.medium),
+        2 => new(multiClass.Satisfaction == Satisfaction.high),
+        _ => throw new NotSupportedException("Only classes 0 to 2 are supported")
+    };
 }
 
-*/
+class PersonSatisfactionDecoder : IMultiClassResultDecoder<PersonSatisfactionResult>
+{
+    private PersonSatisfactionDecoder() { }
+
+    public static IMultiClassResultDecoder<PersonSatisfactionResult> Instance { get; } = new PersonSatisfactionDecoder();
+
+    public PersonSatisfactionResult Decode(IReadOnlyList<double> probabilities)
+    {
+        var max = probabilities.Select((prob, index) => (prob, index)).MaxBy(t => t.prob);
+
+        return new((Satisfaction)max.index);
+    }
+}

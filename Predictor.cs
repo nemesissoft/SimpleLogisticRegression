@@ -2,6 +2,26 @@
 
 //TODO add anti-overfitting measures: https://en.wikipedia.org/wiki/Overfitting
 
+class PredictorFactory
+{
+    public static TrainingSet<TInput, TResult> TrainFrom<TInput, TResult>(IReadOnlyList<(TInput Input, TResult Result)> data,
+        Func<TInput, TInput> scallingFunction, PredictorConfiguration? configuration = null)
+        where TInput : IPredictionInput
+        where TResult : IBinaryResult
+    {
+        return Predictor<TInput, TResult>.TrainFrom(data, scallingFunction, configuration);
+    }
+
+    public static IReadOnlyCollection<TrainingSet<TInput, SimpleResult>> TrainMultipleClassFrom<TInput, TMultiClassResult>(
+        IReadOnlyList<(TInput Input, TMultiClassResult Result)> data,
+        Func<TInput, TInput> scallingFunction, PredictorConfiguration? configuration = null)
+        where TInput : IPredictionInput
+        where TMultiClassResult : IMultiClassResult<TMultiClassResult>
+    {
+        return Predictor<TInput, SimpleResult>.TrainMultipleClassFrom(data, scallingFunction, configuration);
+    }
+}
+
 class Predictor<TInput, TResult>
     where TInput : IPredictionInput
     where TResult : IBinaryResult
@@ -26,8 +46,8 @@ class Predictor<TInput, TResult>
         return GetOutput(encodedInput, _wts);//pValue
     }
 
-    public static (Predictor<TInput, TResult> Predictor, IEnumerable<TrainingPhase> TrainingPhases)
-        TrainFrom(IReadOnlyList<(TInput Input, TResult Result)> data, Func<TInput, TInput> scallingFunction, PredictorConfiguration configuration)
+    public static TrainingSet<TInput, TResult> TrainFrom(IReadOnlyList<(TInput Input, TResult Result)> data,
+        Func<TInput, TInput> scallingFunction, PredictorConfiguration? configuration = null)
     {
         var trainX = new double[data.Count][];
         var trainY = new int[data.Count];
@@ -41,11 +61,42 @@ class Predictor<TInput, TResult>
         var err = GetError(trainX, trainY, wts);
         var acc = GetAccuracy(trainX, trainY, wts);
 
-        return (new Predictor<TInput, TResult>(wts, scallingFunction, acc, err), trainingPhases);
+        return new(new Predictor<TInput, TResult>(wts, scallingFunction, acc, err), trainingPhases);
     }
 
-    private static double[] Train(double[][] trainX, int[] trainY, out IEnumerable<TrainingPhase> trainingPhases, PredictorConfiguration configuration)
+    public static IReadOnlyCollection<TrainingSet<TInput, TResult>> TrainMultipleClassFrom<TMultiClassResult>(
+        IReadOnlyList<(TInput Input, TMultiClassResult Result)> data,
+        Func<TInput, TInput> scallingFunction, PredictorConfiguration? configuration = null)
+        where TMultiClassResult : IMultiClassResult<TMultiClassResult>
     {
+        var classesCount = data[0].Result.ClassCount;
+        var list = new List<TrainingSet<TInput, TResult>>(classesCount);
+
+        for (int classNumber = 0; classNumber < classesCount; classNumber++)
+        {
+            var trainX = new double[data.Count][];
+            var trainY = new int[data.Count];
+            for (int i = 0; i < trainX.Length; i++)
+            {
+                var (input, result) = data[i];
+                trainX[i] = scallingFunction(input).Encode();
+                trainY[i] = result.Separate(result, classNumber).Encode();
+            }
+            var wts = Train(trainX, trainY, out var trainingPhases, configuration);
+            var err = GetError(trainX, trainY, wts);
+            var acc = GetAccuracy(trainX, trainY, wts);
+
+            var trainedSet = new TrainingSet<TInput, TResult>(new Predictor<TInput, TResult>(wts, scallingFunction, acc, err), trainingPhases);
+            list.Add(trainedSet);
+        }
+
+        return list;
+    }
+
+    private static double[] Train(double[][] trainX, int[] trainY, out IEnumerable<TrainingPhase> trainingPhases, PredictorConfiguration? configuration = null)
+    {
+        configuration ??= new();
+
         var phases = new List<TrainingPhase>();
 
         int N = trainX.Length;  // number train items
@@ -155,7 +206,11 @@ class Predictor<TInput, TResult>
 
 readonly record struct TrainingPhase(int Epoch, double Error, double Accuracy);
 
-readonly struct PredictorConfiguration
+record TrainingSet<TInput, TResult>(Predictor<TInput, TResult> Predictor, IEnumerable<TrainingPhase> TrainingPhases)
+    where TInput : IPredictionInput
+    where TResult : IBinaryResult;
+
+class PredictorConfiguration
 {
     public double Lr { get; }
     public int MaxEpoch { get; }

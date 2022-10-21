@@ -5,60 +5,65 @@ ILogger logger = new ConsoleLogger();
 logger.Info("EMPLOYMENT");
 EmploymentPrediction(logger);
 
-
 logger.Info("\n\n\n\n\n\n");
 
-
-//logger.Info("SATISFACTION");
-//SatisfactionPrediction(logger);
+logger.Info("SATISFACTION");
+SatisfactionPrediction(logger);
 
 Console.ReadLine();
 
-/*static void SatisfactionPrediction(ILogger logger)
+static void SatisfactionPrediction(ILogger logger)
 {
     var parser = new PersonSatisfactionDataParser();
 
     using var trainingReader = File.OpenText("Data/employees_train.txt");
     var trainingData = parser.Parse(trainingReader, out var scallingFunction);
 
-    var (predictor, trainingPhases) = Predictor<PersonSatisfactionInput, PersonSatisfactionResult>.TrainFrom(trainingData, scallingFunction, new(maxEpoch: 1000));
+    var trainingSets = PredictorFactory.TrainMultipleClassFrom(trainingData, scallingFunction, new(0.01, 100));
 
-    foreach (var (Epoch, Error, Accuracy) in trainingPhases)
-        logger.Info($"iter = {Epoch,6}  error = {Error:F4} acc = {Accuracy:F4}");
-
-    logger.Info($"Trained weights and bias: {string.Join(" ", predictor.Weights.Select(elem => elem.ToString("F4")))}");
-    logger.Info($"Accuracy of model on training data: {predictor.Accuracy:F4}");
+    int numClass = 0;
+    foreach (var (predictor, trainingPhases) in trainingSets)
+    {
+        logger.Info($"Training for class {numClass++}");
+        foreach (var (Epoch, Error, Accuracy) in trainingPhases)
+            logger.Info($"iter = {Epoch,6}  error = {Error:F4} acc = {Accuracy:F4}");
+        logger.Info($"Trained weights and bias: {string.Join(" ", predictor.Weights.Select(elem => elem.ToString("F4")))}");
+        logger.Info($"Accuracy of model on training data: {predictor.Accuracy:F4}");
+    }
 
 
     var input = new PersonSatisfactionInput(false, 66, JobType.mgmt, 52100.00);
-
     logger.Info($"\nPredicting satisfaction for: {input}");
 
-    var output = predictor.GetOutput(input, out var pValue);
-    logger.Info($"Computed p-value = {pValue:F4}");
-    logger.Info($"Predicted satisfaction = {output.Satisfaction}");
+    var predictors = trainingSets.Select(x => x.Predictor);
+    var decoder = PersonSatisfactionDecoder.Instance;
+
+    var outputs = predictors.Select(p => p.GetOutput(input)).ToList();
+    logger.Info($"Computed p-values = [{string.Join(" ", outputs.Select(elem => elem.ToString("F4")))}]");
+    logger.Info($"Predicted satisfaction = {decoder.Decode(outputs).Satisfaction}");
     logger.Info();
 
-    using var testReader = File.OpenText("Data/employees_test.txt");
+    using var testReader = File.OpenText("Data/employees_train.txt");
+    //using var testReader = File.OpenText("Data/employees_test.txt"); //TODO change
     var testData = parser.Parse(testReader, out _);
 
     var equalCounter = 0;
 
     foreach (var (testInput, testResult) in testData)
     {
-        output = predictor.GetOutput(testInput, out _);
+        outputs = predictors.Select(p => p.GetOutput(testInput)).ToList();
 
-        var predicted = output.Satisfaction;
+        var predicted = decoder.Decode(outputs).Satisfaction;
         var expected = testResult.Satisfaction;
 
         var isEqual = predicted == expected ? "==" : "!=";
         if (predicted == expected) equalCounter++;
 
-        logger.Info($"{predicted} {isEqual} {expected} {testInput}");
+        logger.Info($"{predicted} {isEqual} {expected} [{string.Join(" ", outputs.Select(elem => elem.ToString("F4")))}] {testInput.ToString().Replace(nameof(PersonSatisfactionInput), "")}");
     }
 
-    logger.Info($"Actual accurancy {100.0 * equalCounter / testData.Count} %");
-}*/
+    logger.Info($"MacroAccurcy {100.0 * equalCounter / testData.Count} %");
+}
 
 
 static void EmploymentPrediction(ILogger logger)
@@ -68,7 +73,7 @@ static void EmploymentPrediction(ILogger logger)
     using var trainingReader = File.OpenText("Data/employees_train.txt");
     var trainingData = parser.Parse(trainingReader, out var scallingFunction);
 
-    var (predictor, trainingPhases) = Predictor<PersonEmploymentInput, PersonEmploymentResult>.TrainFrom(trainingData, scallingFunction, new(maxEpoch: 100));
+    var (predictor, trainingPhases) = PredictorFactory.TrainFrom(trainingData, scallingFunction, new(maxEpoch: 100));
 
     foreach (var (Epoch, Error, Accuracy) in trainingPhases)
         logger.Info($"iter = {Epoch,6}  error = {Error:F4} acc = {Accuracy:F4}");

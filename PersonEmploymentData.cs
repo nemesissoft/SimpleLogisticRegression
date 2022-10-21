@@ -85,16 +85,14 @@ readonly record struct PersonEmploymentInput(double Age, JobType Job, double Inc
 
 readonly record struct PersonEmploymentResult(bool IsContractor) : IBinaryResult
 {
-    public static PersonEmploymentResult Decode(double probability) => new(probability >= 0.5);
-
     public int Encode() => IsContractor ? 1 : 0;
 }
 
-class EmploymentResultDecoder : IBinaryOtputDecoder<PersonEmploymentResult>
+class EmploymentResultDecoder : IBinaryResultDecoder<PersonEmploymentResult>
 {
     private EmploymentResultDecoder() { }
 
-    public static IBinaryOtputDecoder<PersonEmploymentResult> Instance { get; } = new EmploymentResultDecoder();
+    public static IBinaryResultDecoder<PersonEmploymentResult> Instance { get; } = new EmploymentResultDecoder();
 
     public PersonEmploymentResult Decode(double probability) => new(probability >= 0.5);
 }
