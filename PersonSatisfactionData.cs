@@ -1,12 +1,8 @@
-﻿using System.Text.RegularExpressions;
+﻿namespace Logit;
 
-namespace Logit;
-
-partial class PersonSatisfactionDataParser : IDataParser<PersonSatisfactionInput, PersonSatisfactionResult>
+/*class PersonSatisfactionDataParser : IDataParser<PersonSatisfactionInput, PersonSatisfactionResult>
 {
-    private static readonly Regex _linePattern = LinePattern();
-    [GeneratedRegex(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
-    private static partial Regex LinePattern();
+    private static readonly Regex _linePattern = new(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace);
 
     public IReadOnlyList<(PersonSatisfactionInput Input, PersonSatisfactionResult TResult)> Parse(StreamReader reader, out Func<PersonSatisfactionInput, PersonSatisfactionInput> scallingFunction)
     {
@@ -80,7 +76,7 @@ readonly record struct PersonSatisfactionInput(bool IsContractor, double Age, Jo
     }
 }
 
-readonly record struct PersonSatisfactionResult(Satisfaction Satisfaction) : IPredictionResult<PersonSatisfactionResult>
+readonly record struct PersonSatisfactionResult(Satisfaction Satisfaction) : IBinaryResult<PersonSatisfactionResult>
 {
     public static PersonSatisfactionResult Decode(double probability) => new(probability switch
     {
@@ -89,12 +85,15 @@ readonly record struct PersonSatisfactionResult(Satisfaction Satisfaction) : IPr
         _ => Satisfaction.medium,
     });
 
-    public double Encode() => Satisfaction switch
+    *//*public double Encode() => Satisfaction switch
     {
         Satisfaction.low => 0.0,
         Satisfaction.medium => 0.5,
         Satisfaction.high => 1.0,
         _ => throw new NotSupportedException(),
-    };
+    };*//*
+
+    public int Encode() => Satisfaction == Satisfaction.low ? 1 : 0;
 }
 
+*/

@@ -9,12 +9,12 @@ EmploymentPrediction(logger);
 logger.Info("\n\n\n\n\n\n");
 
 
-logger.Info("SATISFACTION");
-SatisfactionPrediction(logger);
+//logger.Info("SATISFACTION");
+//SatisfactionPrediction(logger);
 
 Console.ReadLine();
 
-static void SatisfactionPrediction(ILogger logger)
+/*static void SatisfactionPrediction(ILogger logger)
 {
     var parser = new PersonSatisfactionDataParser();
 
@@ -58,7 +58,7 @@ static void SatisfactionPrediction(ILogger logger)
     }
 
     logger.Info($"Actual accurancy {100.0 * equalCounter / testData.Count} %");
-}
+}*/
 
 
 static void EmploymentPrediction(ILogger logger)
@@ -80,12 +80,13 @@ static void EmploymentPrediction(ILogger logger)
     var input = new PersonEmploymentInput(36, JobType.tech, 52000, Satisfaction.medium);
     logger.Info($"\nPredicting employment for: {input}");
 
-    var output = predictor.GetOutput(input, out var pValue);
+    var pValue = predictor.GetOutput(input);
+    var decoder = EmploymentResultDecoder.Instance;
 
     static string GetEmployment(PersonEmploymentResult result) => result.IsContractor ? "Contractor" : "SalaryWorker";
 
     logger.Info($"Computed p-value = {pValue:F4}");
-    logger.Info($"Predicted employment = {GetEmployment(output)}");
+    logger.Info($"Predicted employment = {GetEmployment(decoder.Decode(pValue))}");
     logger.Info();
 
 
@@ -97,9 +98,9 @@ static void EmploymentPrediction(ILogger logger)
 
     foreach (var (testInput, testResult) in testData)
     {
-        output = predictor.GetOutput(testInput, out _);
+        pValue = predictor.GetOutput(testInput);
 
-        var predicted = GetEmployment(output);
+        var predicted = GetEmployment(decoder.Decode(pValue));
         var expected = GetEmployment(testResult);
 
         var isEqual = predicted == expected ? "==" : "!=";

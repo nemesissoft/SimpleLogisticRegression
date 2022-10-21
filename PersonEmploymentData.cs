@@ -2,11 +2,9 @@
 
 namespace Logit;
 
-partial class PersonEmploymentDataParser : IDataParser<PersonEmploymentInput, PersonEmploymentResult>
+class PersonEmploymentDataParser : IDataParser<PersonEmploymentInput, PersonEmploymentResult>
 {
-    private static readonly Regex _linePattern = LinePattern();
-    [GeneratedRegex(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
-    private static partial Regex LinePattern();
+    private static readonly Regex _linePattern = new(@"[\w\.]+  |  ""[\w\.\s]*""", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace);
 
     public IReadOnlyList<(PersonEmploymentInput Input, PersonEmploymentResult TResult)> Parse(StreamReader reader, out Func<PersonEmploymentInput, PersonEmploymentInput> scallingFunction)
     {
@@ -85,9 +83,18 @@ readonly record struct PersonEmploymentInput(double Age, JobType Job, double Inc
     }
 }
 
-readonly record struct PersonEmploymentResult(bool IsContractor) : IPredictionResult<PersonEmploymentResult>
+readonly record struct PersonEmploymentResult(bool IsContractor) : IBinaryResult
 {
     public static PersonEmploymentResult Decode(double probability) => new(probability >= 0.5);
 
-    public double Encode() => IsContractor ? 1.0 : 0.0;
+    public int Encode() => IsContractor ? 1 : 0;
+}
+
+class EmploymentResultDecoder : IBinaryOtputDecoder<PersonEmploymentResult>
+{
+    private EmploymentResultDecoder() { }
+
+    public static IBinaryOtputDecoder<PersonEmploymentResult> Instance { get; } = new EmploymentResultDecoder();
+
+    public PersonEmploymentResult Decode(double probability) => new(probability >= 0.5);
 }

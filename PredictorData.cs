@@ -1,8 +1,7 @@
 ﻿namespace Logit;
 
-interface IDataParser<TInput, TResult> 
-    where TInput : IPredictionInput 
-    where TResult : IPredictionResult<TResult>
+interface IDataParser<TInput, TResult>
+    where TInput : IPredictionInput
 {
     IReadOnlyList<(TInput Input, TResult TResult)> Parse(StreamReader reader, out Func<TInput, TInput> scallingFunction);
 }
@@ -12,10 +11,12 @@ interface IPredictionInput
     double[] Encode();
 }
 
-interface IPredictionResult<TSelf> 
-    where TSelf : IPredictionResult<TSelf>
+interface IBinaryResult
 {
-    double Encode();
+    int Encode();
+}
 
-    static abstract TSelf Decode(double probability);
+interface IBinaryOtputDecoder<T> where T : IBinaryResult
+{
+    T Decode(double probability);
 }

@@ -4,7 +4,7 @@
 
 class Predictor<TInput, TResult>
     where TInput : IPredictionInput
-    where TResult : IPredictionResult<TResult>
+    where TResult : IBinaryResult
 {
     private readonly double[] _wts;
     private readonly Func<TInput, TInput> _scallingFunction;
@@ -20,20 +20,17 @@ class Predictor<TInput, TResult>
         Error = error;
     }
 
-    public TResult GetOutput(TInput input, out double pValue)
+    public double GetOutput(TInput input)
     {
         var encodedInput = _scallingFunction(input).Encode();
-
-        pValue = GetOutput(encodedInput, _wts);
-
-        return TResult.Decode(pValue);
+        return GetOutput(encodedInput, _wts);//pValue
     }
 
     public static (Predictor<TInput, TResult> Predictor, IEnumerable<TrainingPhase> TrainingPhases)
         TrainFrom(IReadOnlyList<(TInput Input, TResult Result)> data, Func<TInput, TInput> scallingFunction, PredictorConfiguration configuration)
     {
         var trainX = new double[data.Count][];
-        var trainY = new double[data.Count];
+        var trainY = new int[data.Count];
         for (int i = 0; i < trainX.Length; i++)
         {
             var (input, result) = data[i];
@@ -47,7 +44,7 @@ class Predictor<TInput, TResult>
         return (new Predictor<TInput, TResult>(wts, scallingFunction, acc, err), trainingPhases);
     }
 
-    private static double[] Train(double[][] trainX, double[] trainY, out IEnumerable<TrainingPhase> trainingPhases, PredictorConfiguration configuration)
+    private static double[] Train(double[][] trainX, int[] trainY, out IEnumerable<TrainingPhase> trainingPhases, PredictorConfiguration configuration)
     {
         var phases = new List<TrainingPhase>();
 
@@ -68,9 +65,9 @@ class Predictor<TInput, TResult>
 
             foreach (int i in indices)
             {
-                double[] x = trainX[i];  // predictors
-                double y = trainY[i];  // target, 0..1
-                double p = GetOutput(x, wts);
+                var x = trainX[i];  // predictors
+                var y = trainY[i];  // target, 0 or 1
+                var p = GetOutput(x, wts);
 
                 for (int j = 0; j < n; ++j)  // each weight
                     wts[j] += lr * x[j] * (y - p) * p * (1 - p);
@@ -100,17 +97,16 @@ class Predictor<TInput, TResult>
         }
     }
 
-    private static double GetAccuracy(double[][] dataX, double[] dataY, double[] wts)
+    private static double GetAccuracy(double[][] dataX, int[] dataY, double[] wts)
     {
         int numCorrect = 0; int numWrong = 0;
         int N = dataX.Length;
         for (int i = 0; i < N; ++i)
         {
-            double[] x = dataX[i];
-            double y = dataY[i];  // actual, 0 or 1
-            double p = GetOutput(x, wts);
+            var x = dataX[i];
+            var y = dataY[i];  // actual, 0 or 1
+            var p = GetOutput(x, wts);
 
-            //TODO use int here + implement one-vs-rest
             if (y == 0 && p < 0.5)
                 ++numCorrect;
             else if (y == 1 && p >= 0.5)
@@ -121,15 +117,15 @@ class Predictor<TInput, TResult>
         return (1.0 * numCorrect) / (numCorrect + numWrong);
     }
 
-    private static double GetError(double[][] dataX, double[] dataY, double[] wts)
+    private static double GetError(double[][] dataX, int[] dataY, double[] wts)
     {
         double sum = 0.0;
         int N = dataX.Length;
         for (int i = 0; i < N; ++i)
         {
-            double[] x = dataX[i];
-            double y = dataY[i];  // target, 0 or 1
-            double p = GetOutput(x, wts);
+            var x = dataX[i];
+            var y = dataY[i];  // target, 0 or 1
+            var p = GetOutput(x, wts);
             sum += (p - y) * (p - y); // E = (o-t)^2 form
         }
         return sum / N;
@@ -165,7 +161,7 @@ readonly struct PredictorConfiguration
     public int MaxEpoch { get; }
     public IRandom Rand { get; }
 
-    public PredictorConfiguration(double lr = 0.01, int maxEpoch = 100, IRandom rand = null)
+    public PredictorConfiguration(double lr = 0.01, int maxEpoch = 100, IRandom? rand = null)
     {
         Lr = lr;
         MaxEpoch = maxEpoch;
